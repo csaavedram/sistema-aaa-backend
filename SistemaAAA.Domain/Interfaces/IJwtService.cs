@@ -18,16 +18,6 @@ public interface IJwtService
     string GenerateRefreshToken();
 
     /// <summary>
-    /// Compatibilidad: genera un access token a partir de userId y lista de roles.
-    /// </summary>
-    string GenerateAccessToken(Guid userId, List<string> roles);
-
-    /// <summary>
-    /// Compatibilidad: genera refresh token asociado a userId.
-    /// </summary>
-    string GenerateRefreshToken(Guid userId);
-
-    /// <summary>
     /// Valida un token y extrae el principal (claims).
     /// </summary>
     bool ValidateToken(string token, out ClaimsPrincipal? principal);

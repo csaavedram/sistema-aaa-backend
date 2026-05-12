@@ -40,19 +40,21 @@ public class RefreshTokenCommandHandlerAppTests
             IsRevoked = false,
             ExpiresAt = DateTime.UtcNow.AddDays(1)
         };
-        var cmd = new RefreshTokenCommand { RefreshToken = "old" };
+        var cmd = new RefreshTokenCommand { RefreshToken = "old", IpAddress = "127.0.0.1" };
 
         _mockAuthRepository.Setup(x => x.GetRefreshTokenByTokenAsync("old", It.IsAny<CancellationToken>())).ReturnsAsync(oldToken);
         _mockAuthRepository.Setup(x => x.GetUserRolesAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<string> { "User" });
-        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, It.IsAny<List<string>>())).Returns("newAccess");
-        _mockJwtService.Setup(x => x.GenerateRefreshToken(userId)).Returns("newRefresh");
+        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, string.Empty, It.IsAny<string[]>())).Returns("newAccess");
+        _mockJwtService.Setup(x => x.GenerateRefreshToken()).Returns("newRefresh");
         _mockAuthRepository.Setup(x => x.SaveRefreshTokenAsync(userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockAuthRepository.Setup(x => x.RevokeRefreshTokenAsync(tokenId, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var result = await _handler.Handle(cmd, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().Be("newAccess");
+        result.Value.Should().NotBeNull();
+        result.Value.AccessToken.Should().Be("newAccess");
+        result.Value.RefreshToken.Should().Be("newRefresh");
         _mockAuthRepository.Verify(x => x.RevokeRefreshTokenAsync(tokenId, It.IsAny<CancellationToken>()), Times.Once);
         _mockAuthRepository.Verify(x => x.SaveRefreshTokenAsync(userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -69,7 +71,7 @@ public class RefreshTokenCommandHandlerAppTests
             IsRevoked = false,
             ExpiresAt = DateTime.UtcNow.AddMinutes(-10)
         };
-        var cmd = new RefreshTokenCommand { RefreshToken = "old" };
+        var cmd = new RefreshTokenCommand { RefreshToken = "old", IpAddress = "127.0.0.1" };
 
         _mockAuthRepository.Setup(x => x.GetRefreshTokenByTokenAsync("old", It.IsAny<CancellationToken>())).ReturnsAsync(expiredToken);
 
@@ -92,7 +94,7 @@ public class RefreshTokenCommandHandlerAppTests
             IsRevoked = true,
             ExpiresAt = DateTime.UtcNow.AddDays(1)
         };
-        var cmd = new RefreshTokenCommand { RefreshToken = "old" };
+        var cmd = new RefreshTokenCommand { RefreshToken = "old", IpAddress = "127.0.0.1" };
 
         _mockAuthRepository.Setup(x => x.GetRefreshTokenByTokenAsync("old", It.IsAny<CancellationToken>())).ReturnsAsync(revokedToken);
 
@@ -115,18 +117,21 @@ public class RefreshTokenCommandHandlerAppTests
             IsRevoked = false,
             ExpiresAt = DateTime.UtcNow.AddDays(1)
         };
-        var cmd = new RefreshTokenCommand { RefreshToken = "old" };
+        var cmd = new RefreshTokenCommand { RefreshToken = "old", IpAddress = "127.0.0.1" };
 
         _mockAuthRepository.Setup(x => x.GetRefreshTokenByTokenAsync("old", It.IsAny<CancellationToken>())).ReturnsAsync(oldToken);
         _mockAuthRepository.Setup(x => x.GetUserRolesAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<string> { "User" });
-        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, It.IsAny<List<string>>())).Returns("newAccess");
-        _mockJwtService.Setup(x => x.GenerateRefreshToken(userId)).Returns("newRefresh");
+        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, string.Empty, It.IsAny<string[]>())).Returns("newAccess");
+        _mockJwtService.Setup(x => x.GenerateRefreshToken()).Returns("newRefresh");
         _mockAuthRepository.Setup(x => x.SaveRefreshTokenAsync(userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockAuthRepository.Setup(x => x.RevokeRefreshTokenAsync(tokenId, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var result = await _handler.Handle(cmd, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value.AccessToken.Should().Be("newAccess");
+        result.Value.RefreshToken.Should().Be("newRefresh");
         _mockAuthRepository.Verify(x => x.RevokeRefreshTokenAsync(tokenId, It.IsAny<CancellationToken>()), Times.Once);
         _mockAuthRepository.Verify(x => x.SaveRefreshTokenAsync(userId, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -143,7 +148,7 @@ public class RefreshTokenCommandHandlerAppTests
             IsRevoked = false,
             ExpiresAt = DateTime.UtcNow.AddDays(1)
         };
-        var cmd = new RefreshTokenCommand { RefreshToken = "old", ExpectedUserId = Guid.NewGuid() };
+        var cmd = new RefreshTokenCommand { RefreshToken = "old", ExpectedUserId = Guid.NewGuid(), IpAddress = "127.0.0.1" };
 
         _mockAuthRepository.Setup(x => x.GetRefreshTokenByTokenAsync("old", It.IsAny<CancellationToken>())).ReturnsAsync(token);
 

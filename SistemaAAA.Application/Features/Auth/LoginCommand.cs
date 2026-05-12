@@ -11,4 +11,4 @@ public record LoginCommand(string Email, string Password, string IpAddress) : IR
 /// <summary>
 /// Respuesta del proceso de autenticación.
 /// </summary>
-public record AuthResponse(string AccessToken, int ExpiresIn, Guid UserId, string[] Roles);
+public record AuthResponse(string AccessToken, string RefreshToken, int ExpiresIn, Guid UserId, string[] Roles);

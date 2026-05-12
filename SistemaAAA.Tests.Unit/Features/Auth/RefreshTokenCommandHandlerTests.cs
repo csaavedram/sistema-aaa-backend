@@ -56,12 +56,12 @@ public class RefreshTokenCommandHandlerTests
 
         var roles = new List<string> { "Admin" };
 
-        var cmd = new RefreshTokenCommand { RefreshToken = refreshTokenValue };
+        var cmd = new RefreshTokenCommand { RefreshToken = refreshTokenValue, IpAddress = "127.0.0.1" };
 
         _mockAuthRepository.Setup(x => x.GetRefreshTokenByTokenAsync(refreshTokenValue, It.IsAny<CancellationToken>())).ReturnsAsync(storedToken);
         _mockAuthRepository.Setup(x => x.GetUserRolesAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(roles);
-        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, It.IsAny<List<string>>())).Returns(newAccessToken);
-        _mockJwtService.Setup(x => x.GenerateRefreshToken(userId)).Returns(newRefreshToken);
+        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, string.Empty, It.IsAny<string[]>())).Returns(newAccessToken);
+        _mockJwtService.Setup(x => x.GenerateRefreshToken()).Returns(newRefreshToken);
         _mockAuthRepository.Setup(x => x.RevokeRefreshTokenAsync(storedToken.Id, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockAuthRepository.Setup(x => x.SaveRefreshTokenAsync(userId, newRefreshToken, string.Empty, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
@@ -70,9 +70,11 @@ public class RefreshTokenCommandHandlerTests
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().Be(newAccessToken);
+        result.Value.Should().NotBeNull();
+        result.Value.AccessToken.Should().Be(newAccessToken);
+        result.Value.RefreshToken.Should().Be(newRefreshToken);
         _mockAuthRepository.Verify(x => x.RevokeRefreshTokenAsync(storedToken.Id, It.IsAny<CancellationToken>()), Times.Once);
-        _mockAuthRepository.Verify(x => x.SaveRefreshTokenAsync(userId, newRefreshToken, string.Empty, It.IsAny<CancellationToken>()), Times.Once);
+        _mockAuthRepository.Verify(x => x.SaveRefreshTokenAsync(userId, newRefreshToken, "127.0.0.1", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -89,7 +91,7 @@ public class RefreshTokenCommandHandlerTests
             ExpiresAt = DateTime.UtcNow.AddMinutes(-5)
         };
 
-        var cmd = new RefreshTokenCommand { RefreshToken = refreshTokenValue };
+        var cmd = new RefreshTokenCommand { RefreshToken = refreshTokenValue, IpAddress = "127.0.0.1" };
 
         _mockAuthRepository.Setup(x => x.GetRefreshTokenByTokenAsync(refreshTokenValue, It.IsAny<CancellationToken>())).ReturnsAsync(storedToken);
 
@@ -117,7 +119,7 @@ public class RefreshTokenCommandHandlerTests
             ExpiresAt = DateTime.UtcNow.AddDays(7)
         };
 
-        var cmd = new RefreshTokenCommand { RefreshToken = refreshTokenValue };
+        var cmd = new RefreshTokenCommand { RefreshToken = refreshTokenValue, IpAddress = "127.0.0.1" };
 
         _mockAuthRepository.Setup(x => x.GetRefreshTokenByTokenAsync(refreshTokenValue, It.IsAny<CancellationToken>())).ReturnsAsync(storedToken);
 
@@ -135,7 +137,7 @@ public class RefreshTokenCommandHandlerTests
     {
         // Arrange
         var refreshTokenValue = "invalid_token";
-        var cmd = new RefreshTokenCommand { RefreshToken = refreshTokenValue };
+        var cmd = new RefreshTokenCommand { RefreshToken = refreshTokenValue, IpAddress = "127.0.0.1" };
 
         _mockAuthRepository.Setup(x => x.GetRefreshTokenByTokenAsync(refreshTokenValue, It.IsAny<CancellationToken>())).ReturnsAsync((RefreshToken?)null);
 
@@ -166,12 +168,12 @@ public class RefreshTokenCommandHandlerTests
 
         var roles = new List<string> { "User" };
 
-        var cmd = new RefreshTokenCommand { RefreshToken = refreshTokenValue };
+        var cmd = new RefreshTokenCommand { RefreshToken = refreshTokenValue, IpAddress = "127.0.0.1" };
 
         _mockAuthRepository.Setup(x => x.GetRefreshTokenByTokenAsync(refreshTokenValue, It.IsAny<CancellationToken>())).ReturnsAsync(storedToken);
         _mockAuthRepository.Setup(x => x.GetUserRolesAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(roles);
-        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, It.IsAny<List<string>>())).Returns(newAccessToken);
-        _mockJwtService.Setup(x => x.GenerateRefreshToken(userId)).Returns("new_refresh_token");
+        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, string.Empty, It.IsAny<string[]>())).Returns(newAccessToken);
+        _mockJwtService.Setup(x => x.GenerateRefreshToken()).Returns("new_refresh_token");
         _mockAuthRepository.Setup(x => x.RevokeRefreshTokenAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockAuthRepository.Setup(x => x.SaveRefreshTokenAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
@@ -180,6 +182,8 @@ public class RefreshTokenCommandHandlerTests
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().Be(newAccessToken);
+        result.Value.Should().NotBeNull();
+        result.Value.AccessToken.Should().Be(newAccessToken);
+        result.Value.RefreshToken.Should().Be("new_refresh_token");
     }
 }

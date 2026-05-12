@@ -29,6 +29,12 @@ public class AuthRepository : IAuthRepository
     }
 
     /// <inheritdoc />
+    public Task<User?> GetByIdAsync(Guid userId, CancellationToken ct = default)
+    {
+        return _context.Users.FirstOrDefaultAsync(x => x.Id == userId, ct);
+    }
+
+    /// <inheritdoc />
     public Task<User?> GetUserByEmailAsync(string email, CancellationToken ct = default)
     {
         return GetByEmailAsync(email, ct);

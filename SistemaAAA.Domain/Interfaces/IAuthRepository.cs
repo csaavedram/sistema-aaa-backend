@@ -12,6 +12,11 @@ public interface IAuthRepository
     Task<User?> GetByEmailAsync(string email, CancellationToken ct = default);
 
     /// <summary>
+    /// Obtiene un usuario por su identificador.
+    /// </summary>
+    Task<User?> GetByIdAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>
     /// Alias/compatibilidad: obtiene un usuario por su correo electrónico.
     /// </summary>
     Task<User?> GetUserByEmailAsync(string email, CancellationToken ct = default);

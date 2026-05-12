@@ -1,12 +1,11 @@
+using System;
 using System.Security.Claims;
-using System.Threading;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using SistemaAAA.Application.Common;
 using SistemaAAA.Application.Features.Auth;
-using SistemaAAA.Domain.Interfaces;
 
 namespace SistemaAAA.API.Controllers;
 
@@ -14,20 +13,25 @@ namespace SistemaAAA.API.Controllers;
 [Route("api/v1/[controller]")]
 public class AuthController : ControllerBase
 {
+    private const string RefreshTokenCookieName = "refresh_token";
     private readonly IMediator _mediator;
     private readonly ILogger<AuthController> _logger;
-    private readonly IJwtService _jwtService;
-    private readonly IAuthRepository _authRepository;
 
-    public AuthController(IMediator mediator, ILogger<AuthController> logger, IJwtService jwtService, IAuthRepository authRepository)
+    public AuthController(IMediator mediator, ILogger<AuthController> logger)
     {
         _mediator = mediator;
         _logger = logger;
-        _jwtService = jwtService;
-        _authRepository = authRepository;
     }
 
     private string? GetIpAddress() => HttpContext?.Connection?.RemoteIpAddress?.ToString();
+
+    private static CookieOptions BuildRefreshTokenCookieOptions() => new()
+    {
+        HttpOnly = true,
+        Secure = true,
+        SameSite = SameSiteMode.Strict,
+        Expires = DateTime.UtcNow.AddDays(7)
+    };
 
     /// <summary>
     /// POST /login
@@ -48,30 +52,14 @@ public class AuthController : ControllerBase
 
         if (!result.IsSuccess)
         {
-            // Map known error codes to HTTP statuses
             if (result.ErrorCode == "ACCOUNT_LOCKED") return StatusCode(423, result);
             if (result.ErrorCode == "AUTH_INVALID_CREDENTIALS") return Unauthorized(result);
-            // fallback
-            return StatusCode(result is null ? 401 : 401, result);
+            return StatusCode(401, result);
         }
 
-        // Success: set refresh token cookie (httpOnly)
         var auth = result.Value!;
+        Response.Cookies.Append(RefreshTokenCookieName, auth.RefreshToken, BuildRefreshTokenCookieOptions());
 
-        var newRefreshToken = _jwtService.GenerateRefreshToken(auth.UserId);
-        await _authRepository.SaveRefreshTokenAsync(auth.UserId, newRefreshToken, ip ?? string.Empty, HttpContext?.RequestAborted ?? CancellationToken.None);
-
-        var cookieOptions = new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Expires = DateTime.UtcNow.AddDays(7)
-        };
-
-        Response.Cookies.Append("refresh_token", newRefreshToken, cookieOptions);
-
-        // Return access token info (NOT including refresh token)
         var body = new
         {
             success = true,
@@ -97,62 +85,34 @@ public class AuthController : ControllerBase
     [ProducesResponseType(typeof(object), 500)]
     public async Task<IActionResult> Refresh()
     {
-        var refreshToken = Request.Cookies["refresh_token"];
+        var refreshToken = Request.Cookies[RefreshTokenCookieName];
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
             return Unauthorized(new { errorCode = "TOKEN_MISSING", message = "Refresh token no encontrado" });
         }
 
         var ip = GetIpAddress();
-        var cmd = new RefreshTokenCommand { RefreshToken = refreshToken };
+        var cmd = new RefreshTokenCommand { RefreshToken = refreshToken, IpAddress = ip };
 
         var result = await _mediator.Send(cmd);
         if (!result.IsSuccess)
         {
-            // Clear cookie on failure
-            Response.Cookies.Delete("refresh_token");
-            return StatusCode(result is null ? 401 : 401, result);
+            Response.Cookies.Delete(RefreshTokenCookieName);
+            return StatusCode(401, result);
         }
 
-        // Handler returns access token string. Extract user id from token to persist new refresh token.
-        var accessToken = result.Value!;
-        if (!_jwtService.ValidateToken(accessToken, out var principal) || principal is null)
-        {
-            Response.Cookies.Delete("refresh_token");
-            return StatusCode(401, new { error = "INVALID_TOKEN" });
-        }
-
-        var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrWhiteSpace(userIdClaim))
-        {
-            Response.Cookies.Delete("refresh_token");
-            return StatusCode(401, new { error = "INVALID_TOKEN" });
-        }
-
-        var userId = Guid.Parse(userIdClaim);
-
-        var newRefresh = _jwtService.GenerateRefreshToken(userId);
-        await _authRepository.SaveRefreshTokenAsync(userId, newRefresh, ip ?? string.Empty, HttpContext?.RequestAborted ?? CancellationToken.None);
+        var auth = result.Value!;
+        Response.Cookies.Append(RefreshTokenCookieName, auth.RefreshToken, BuildRefreshTokenCookieOptions());
 
         var body = new
         {
             success = true,
             data = new
             {
-                accessToken = accessToken,
-                expiresIn = 60 * 60
+                accessToken = auth.AccessToken,
+                expiresIn = auth.ExpiresIn
             }
         };
-
-        var cookieOptions = new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Expires = DateTime.UtcNow.AddDays(7)
-        };
-
-        Response.Cookies.Append("refresh_token", newRefresh, cookieOptions);
 
         return Ok(body);
     }
@@ -167,25 +127,28 @@ public class AuthController : ControllerBase
     [ProducesResponseType(500)]
     public async Task<IActionResult> Logout()
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrWhiteSpace(userIdClaim)) return Unauthorized();
-
-        var ip = GetIpAddress();
-        var accessToken = Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-        var refreshToken = Request.Cookies["refresh_token"];
-
-        var cmd = new LogoutCommand(Guid.Parse(userIdClaim), string.IsNullOrWhiteSpace(accessToken) ? null : accessToken, string.IsNullOrWhiteSpace(refreshToken) ? null : refreshToken, ip);
-
         try
         {
-            var result = await _mediator.Send(cmd);
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized();
+            }
 
-            // Always delete cookie
-            Response.Cookies.Delete("refresh_token");
+            var ip = GetIpAddress();
+            var authorizationHeader = Request.Headers["Authorization"].ToString();
+            var accessToken = authorizationHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? authorizationHeader[7..]
+                : authorizationHeader;
+            var refreshToken = Request.Cookies[RefreshTokenCookieName];
+
+            var cmd = new LogoutCommand(userId, string.IsNullOrWhiteSpace(accessToken) ? null : accessToken, string.IsNullOrWhiteSpace(refreshToken) ? null : refreshToken, ip);
+
+            var result = await _mediator.Send(cmd);
 
             if (!result.IsSuccess)
             {
-                return StatusCode(result is null ? 500 : 500, result);
+                return StatusCode(500, result);
             }
 
             return NoContent();
@@ -193,8 +156,11 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during logout");
-            Response.Cookies.Delete("refresh_token");
             return StatusCode(500, Result<bool>.Failure("INTERNAL_ERROR", "Error processing logout"));
+        }
+        finally
+        {
+            Response.Cookies.Delete(RefreshTokenCookieName);
         }
     }
 
@@ -210,7 +176,6 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
         var ip = GetIpAddress();
-        // Fire-and-forget the command but still await to allow audit in handler
         var cmd = new ForgotPasswordCommand(request.Email ?? string.Empty, ip);
 
         try
@@ -220,7 +185,6 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing forgot-password request");
-            return StatusCode(500, new { success = true, message = "Si el email existe, recibirás instrucciones en breve" });
         }
 
         return Ok(new { success = true, message = "Si el email existe, recibirás instrucciones en breve" });
@@ -243,7 +207,17 @@ public class AuthController : ControllerBase
         var result = await _mediator.Send(cmd);
         if (!result.IsSuccess)
         {
-            return StatusCode(result is null ? 400 : 400, result);
+            if (result.ErrorCode is "TOKEN_EXPIRED" or "TOKEN_INVALID")
+            {
+                return BadRequest(result);
+            }
+
+            if (result.ErrorCode == "WEAK_PASSWORD")
+            {
+                return StatusCode(422, result);
+            }
+
+            return BadRequest(result);
         }
 
         return Ok(new { success = true, message = "Contraseña actualizada correctamente" });

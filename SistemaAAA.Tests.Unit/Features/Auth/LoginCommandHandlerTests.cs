@@ -62,8 +62,9 @@ public class LoginCommandHandlerTests
 
         _mockAuthRepository.Setup(x => x.GetUserByEmailAsync(email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
         _mockAuthRepository.Setup(x => x.GetUserRolesAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(expectedRoles);
-        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, It.IsAny<List<string>>())).Returns(expectedAccessToken);
-        _mockJwtService.Setup(x => x.GenerateRefreshToken(userId)).Returns("refresh_token_value");
+        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, email, It.IsAny<string[]>())).Returns(expectedAccessToken);
+        _mockJwtService.Setup(x => x.GenerateRefreshToken()).Returns("refresh_token_value");
+        _mockAuthRepository.Setup(x => x.SaveRefreshTokenAsync(userId, "refresh_token_value", "127.0.0.1", It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         // Act
         var result = await _handler.Handle(loginCommand, CancellationToken.None);
@@ -72,11 +73,13 @@ public class LoginCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
         result.Value!.AccessToken.Should().Be(expectedAccessToken);
+        result.Value!.RefreshToken.Should().Be("refresh_token_value");
         result.Value!.UserId.Should().Be(userId);
         result.Value!.Roles.Should().NotBeNull();
 
         _mockAuthRepository.Verify(x => x.GetUserByEmailAsync(email, It.IsAny<CancellationToken>()), Times.Once);
-        _mockJwtService.Verify(x => x.GenerateAccessToken(userId, It.IsAny<List<string>>()), Times.Once);
+        _mockJwtService.Verify(x => x.GenerateAccessToken(userId, email, It.IsAny<string[]>()), Times.Once);
+        _mockAuthRepository.Verify(x => x.SaveRefreshTokenAsync(userId, "refresh_token_value", "127.0.0.1", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

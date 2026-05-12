@@ -14,28 +14,43 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
 {
     private readonly IAuthRepository _authRepository;
     private readonly IJwtService _jwtService;
+    private readonly IAuditRepository? _auditRepository;
     private readonly ILogger<LoginCommandHandler> _logger;
 
+    /// <summary>
+    /// Inicializa una nueva instancia del handler de login.
+    /// </summary>
+    /// <param name="authRepository">Repositorio de autenticación.</param>
+    /// <param name="jwtService">Servicio JWT.</param>
+    /// <param name="logger">Logger.</param>
+    /// <param name="auditRepository">Repositorio de auditoría opcional.</param>
     public LoginCommandHandler(
         IAuthRepository authRepository,
         IJwtService jwtService,
-        ILogger<LoginCommandHandler> logger)
+        ILogger<LoginCommandHandler> logger,
+        IAuditRepository? auditRepository = null)
     {
         _authRepository = authRepository;
         _jwtService = jwtService;
         _logger = logger;
+        _auditRepository = auditRepository;
     }
 
+    /// <summary>
+    /// Ejecuta el login validando credenciales, aplicando bloqueo y generando la respuesta de autenticación.
+    /// </summary>
+    /// <param name="request">Datos del login.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    /// <returns>Resultado con la respuesta de autenticación o un error de negocio.</returns>
     public async Task<Result<AuthResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
         try
         {
             var user = await _authRepository.GetUserByEmailAsync(request.Email, cancellationToken);
 
-            // If user doesn't exist, record audit with null UserId and return generic invalid credentials
             if (user is null)
             {
-                _logger.LogWarning("Login failed for unknown user (email masked)");
+                await RecordAuditAsync(null, "LOGIN_FAILURE", request.IpAddress, cancellationToken);
                 return Result<AuthResponse>.Failure("AUTH_INVALID_CREDENTIALS", "Invalid credentials.");
             }
 
@@ -74,6 +89,8 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
 
                 await _authRepository.UpdateAsync(user, cancellationToken);
 
+                await RecordAuditAsync(user.Id, "LOGIN_FAILURE", request.IpAddress, cancellationToken);
+
                 _logger.LogWarning("Invalid credentials for user: {UserId}", user.Id);
                 return Result<AuthResponse>.Failure("AUTH_INVALID_CREDENTIALS", "Invalid credentials.");
             }
@@ -84,13 +101,17 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
             await _authRepository.UpdateAsync(user, cancellationToken);
 
             // Load roles and generate tokens
-             var roles = await _authRepository.GetUserRolesAsync(user.Id, cancellationToken);
+            var roles = await _authRepository.GetUserRolesAsync(user.Id, cancellationToken);
 
-            var accessToken = _jwtService.GenerateAccessToken(user.Id, roles);
-            var refreshToken = _jwtService.GenerateRefreshToken(user.Id);
+            var accessToken = _jwtService.GenerateAccessToken(user.Id, user.Email, roles.ToArray());
+            var refreshToken = _jwtService.GenerateRefreshToken();
+
+            await _authRepository.SaveRefreshTokenAsync(user.Id, refreshToken, request.IpAddress, cancellationToken);
+
+            await RecordAuditAsync(user.Id, "LOGIN_SUCCESS", request.IpAddress, cancellationToken);
 
             var expiresIn = 60; // minutes default
-            var authResponse = new AuthResponse(accessToken, expiresIn * 60, user.Id, roles.ToArray());
+            var authResponse = new AuthResponse(accessToken, refreshToken, expiresIn * 60, user.Id, roles.ToArray());
 
             _logger.LogInformation("User logged in: {UserId}", user.Id);
             return Result<AuthResponse>.Success(authResponse);
@@ -100,5 +121,26 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
             _logger.LogError(ex, "Unexpected error during login");
             return Result<AuthResponse>.Failure("INTERNAL_ERROR", "An unexpected error occurred.");
         }
+    }
+
+    private async Task RecordAuditAsync(Guid? userId, string eventType, string ipAddress, CancellationToken cancellationToken)
+    {
+        if (_auditRepository is null)
+        {
+            return;
+        }
+
+        var auditLog = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            EventType = eventType,
+            Resource = "Auth",
+            Details = eventType == "LOGIN_SUCCESS" ? "Login success" : "Login failure",
+            IpAddress = ipAddress,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _auditRepository.InsertAsync(auditLog, cancellationToken);
     }
 }
