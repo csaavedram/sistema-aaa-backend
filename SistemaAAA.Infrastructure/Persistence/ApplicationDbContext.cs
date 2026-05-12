@@ -53,6 +53,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     /// <summary>
+    /// Tokens de reinicio de contraseña.
+    /// </summary>
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+
+    /// <summary>
     /// Configura el modelo EF Core.
     /// </summary>
     /// <param name="modelBuilder">Constructor del modelo.</param>

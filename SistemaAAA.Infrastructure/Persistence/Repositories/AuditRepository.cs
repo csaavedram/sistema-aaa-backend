@@ -35,6 +35,14 @@ public class AuditRepository : IAuditRepository
         await _context.SaveChangesAsync(ct);
     }
 
+    /// <inheritdoc />
+    public Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken ct)
+    {
+        return _context.AuditLogs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
+    }
+
     /// <summary>
     /// Obtiene registros de auditoría según el filtro proporcionado.
     /// Los resultados se consultan sin tracking para no permitir cambios.

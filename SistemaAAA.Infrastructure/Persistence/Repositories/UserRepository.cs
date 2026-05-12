@@ -33,6 +33,7 @@ public class UserRepository : IUserRepository
         var validPageSize = pageSize > 0 ? pageSize : 50;
 
         return await _context.Users
+            .Where(x => x.IsActive)
             .OrderBy(x => x.Email)
             .Skip((validPage - 1) * validPageSize)
             .Take(validPageSize)
@@ -62,7 +63,11 @@ public class UserRepository : IUserRepository
             return;
         }
 
-        _context.Users.Remove(user);
+        // Soft delete: mark user inactive and update timestamp
+        user.IsActive = false;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _context.Users.Update(user);
         await _context.SaveChangesAsync(ct);
     }
 

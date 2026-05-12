@@ -44,6 +44,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasIndex(x => x.Email)
             .HasDatabaseName("IX_Users_Email")
+            .IsUnique()
             .HasFilter("[IsActive] = 1");
     }
 }

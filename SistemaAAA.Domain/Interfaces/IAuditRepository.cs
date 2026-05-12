@@ -17,6 +17,11 @@ public interface IAuditRepository
     Task InsertAsync(AuditLog log, CancellationToken ct);
 
     /// <summary>
+    /// Obtiene un registro de auditoría por su identificador.
+    /// </summary>
+    Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken ct);
+
+    /// <summary>
     /// Obtiene registros de auditoría según un filtro.
     /// </summary>
     Task<IEnumerable<AuditLog>> GetLogsAsync(AuditLogFilter filter, CancellationToken ct);
