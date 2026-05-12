@@ -15,17 +15,21 @@ public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
     /// <param name="builder">Constructor de configuración de entidad.</param>
     public void Configure(EntityTypeBuilder<AuditLog> builder)
     {
+        builder.ToTable("AuditLogs");
+
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)
-            .ValueGeneratedOnAdd()
-            .HasDefaultValueSql("NEWID()");
+            .ValueGeneratedNever();
 
         builder.Property(x => x.Details)
             .HasColumnType("nvarchar(max)");
 
-        builder.HasIndex(x => x.UserId);
-        builder.HasIndex(x => x.CreatedAt);
-        builder.HasIndex(x => x.EventType);
+        builder.HasIndex(x => new { x.EventType, x.CreatedAt })
+            .HasDatabaseName("IX_AuditLogs_EventType_CreatedAt");
+
+        builder.HasIndex(x => x.UserId)
+            .HasDatabaseName("IX_AuditLogs_UserId")
+            .HasFilter("[UserId] IS NOT NULL");
     }
 }
