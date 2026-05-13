@@ -480,3 +480,9 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Development environment files
+appsettings.Development.json
+
+# Entity Framework Migrations
+Migrations/

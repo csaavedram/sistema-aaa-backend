@@ -65,7 +65,7 @@ public class AssignRoleToUserCommandHandler : IRequestHandler<AssignRoleToUserCo
                 EventType = "ROLE_ASSIGNED_TO_USER",
                 Resource = "Role",
                 Details = $"Rol {request.RoleId} asignado a usuario {request.UserId}",
-                IpAddress = request.IpAddress,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 

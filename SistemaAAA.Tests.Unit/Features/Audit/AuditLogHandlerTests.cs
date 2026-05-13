@@ -90,7 +90,7 @@ public class AuditLogHandlerTests
                 UserId = Guid.NewGuid(),
                 EventType = "LOGIN_SUCCESS",
                 Resource = "Auth",
-                Details = null,
+                Details = null!,
                 IpAddress = "127.0.0.1",
                 CreatedAt = DateTime.UtcNow.AddDays(-3)
             }

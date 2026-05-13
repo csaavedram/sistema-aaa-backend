@@ -65,7 +65,7 @@ public class RemoveRoleFromUserCommandHandler : IRequestHandler<RemoveRoleFromUs
                 EventType = "ROLE_REMOVED_FROM_USER",
                 Resource = "Role",
                 Details = $"Rol {request.RoleId} removido de usuario {request.UserId}",
-                IpAddress = request.IpAddress,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 

@@ -4,7 +4,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
+using FluentValidation;
 using SistemaAAA.Application.Features.Auth;
+using SistemaAAA.Application.Features.Users;
+using SistemaAAA.Application.Features.Roles;
+using SistemaAAA.Application.Common.Behaviors;
 using SistemaAAA.Domain.Interfaces;
 using SistemaAAA.Infrastructure.Persistence;
 using SistemaAAA.Infrastructure.Persistence.Repositories;
@@ -12,6 +16,7 @@ using SistemaAAA.Infrastructure.Security;
 using SistemaAAA.Infrastructure.Services;
 using SistemaAAA.API.Services;
 using SistemaAAA.API.Extensions;
+using SistemaAAA.API.Middleware;
 using MediatR;
 using System.Text;
 
@@ -86,8 +91,31 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// Registrar validadores de FluentValidation — Auth Commands
+builder.Services.AddTransient<IValidator<LoginCommand>, LoginCommandValidator>();
+builder.Services.AddTransient<IValidator<ForgotPasswordCommand>, ForgotPasswordCommandValidator>();
+builder.Services.AddTransient<IValidator<ResetPasswordCommand>, ResetPasswordCommandValidator>();
+builder.Services.AddTransient<IValidator<RefreshTokenCommand>, RefreshTokenCommandValidator>();
+
+// Registrar validadores de FluentValidation — User Commands
+builder.Services.AddTransient<IValidator<CreateUserCommand>, CreateUserCommandValidator>();
+builder.Services.AddTransient<IValidator<UpdateUserCommand>, UpdateUserCommandValidator>();
+builder.Services.AddTransient<IValidator<DeleteUserCommand>, DeleteUserCommandValidator>();
+
+// Registrar validadores de FluentValidation — Role Commands
+builder.Services.AddTransient<IValidator<CreateRoleCommand>, CreateRoleCommandValidator>();
+builder.Services.AddTransient<IValidator<DeleteRoleCommand>, DeleteRoleCommandValidator>();
+builder.Services.AddTransient<IValidator<AssignRoleToUserCommand>, AssignRoleToUserCommandValidator>();
+builder.Services.AddTransient<IValidator<RemoveRoleFromUserCommand>, RemoveRoleFromUserCommandValidator>();
+
 builder.Services.AddMediatR(cfg =>
-    cfg.RegisterServicesFromAssembly(typeof(LoginCommandHandler).Assembly));
+{
+    cfg.RegisterServicesFromAssembly(typeof(LoginCommandHandler).Assembly);
+    cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+});
+
+// Registrar JwtMiddleware como servicio (requerido para IMiddleware)
+builder.Services.AddScoped<JwtMiddleware>();
 
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
@@ -97,7 +125,7 @@ builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
-builder.Services.AddScoped<IEmailService, StubEmailService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
 
@@ -109,6 +137,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseAuthentication();
+app.UseJwtMiddleware();
 app.UseAuthorization();
 
 app.MapControllers();

@@ -120,7 +120,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
                 EventType = "PASSWORD_RESET_REQUESTED",
                 Resource = "Auth",
                 Details = "Token de reset de contraseña generado y enviado por correo",
-                IpAddress = request.IpAddress,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 

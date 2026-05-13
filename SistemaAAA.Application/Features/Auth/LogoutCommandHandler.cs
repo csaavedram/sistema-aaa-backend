@@ -84,7 +84,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result<bool>>
                 EventType = "LOGOUT",
                 Resource = "Auth",
                 Details = "Logout exitoso",
-                IpAddress = request.IpAddress,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 

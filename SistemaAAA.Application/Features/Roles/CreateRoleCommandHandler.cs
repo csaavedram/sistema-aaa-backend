@@ -66,7 +66,7 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Resul
                 EventType = "ROLE_CREATED",
                 Resource = "Role",
                 Details = $"Rol {role.Id} creado",
-                IpAddress = request.IpAddress,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 

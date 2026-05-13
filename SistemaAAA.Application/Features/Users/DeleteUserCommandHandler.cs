@@ -69,7 +69,7 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, Resul
                 EventType = "USER_DEACTIVATED",
                 Resource = "User",
                 Details = $"Usuario {request.UserId} desactivado",
-                IpAddress = request.IpAddress,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 

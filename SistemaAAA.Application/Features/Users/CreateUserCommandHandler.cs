@@ -79,7 +79,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Resul
                 EventType = "USER_CREATED",
                 Resource = "User",
                 Details = "Usuario creado",
-                IpAddress = request.IpAddress,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 

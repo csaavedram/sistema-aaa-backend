@@ -57,7 +57,7 @@ public class DeleteRoleCommandHandler : IRequestHandler<DeleteRoleCommand, Resul
                 EventType = "ROLE_DELETED",
                 Resource = "Role",
                 Details = $"Rol {request.RoleId} eliminado",
-                IpAddress = request.IpAddress,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 

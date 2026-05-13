@@ -71,7 +71,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Resul
                 EventType = "USER_UPDATED",
                 Resource = "User",
                 Details = $"Usuario {request.UserId} actualizado",
-                IpAddress = request.IpAddress,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 

@@ -50,7 +50,7 @@ public class PasswordResetTokenConfiguration : IEntityTypeConfiguration<Password
         // Índice para búsqueda de tokens activos (no usados y no expirados)
         builder.HasIndex(x => x.UserId)
             .HasDatabaseName("IX_PasswordResetTokens_UserId_Active")
-            .HasFilter("[IsUsed] = 0 AND [ExpiresAt] > GETUTCDATE()");
+            .HasFilter("[IsUsed] = 0");
 
         // Índice para limpieza de tokens expirados
         builder.HasIndex(x => x.ExpiresAt)
