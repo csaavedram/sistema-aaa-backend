@@ -96,6 +96,7 @@ builder.Services.AddTransient<IValidator<LoginCommand>, LoginCommandValidator>()
 builder.Services.AddTransient<IValidator<ForgotPasswordCommand>, ForgotPasswordCommandValidator>();
 builder.Services.AddTransient<IValidator<ResetPasswordCommand>, ResetPasswordCommandValidator>();
 builder.Services.AddTransient<IValidator<RefreshTokenCommand>, RefreshTokenCommandValidator>();
+builder.Services.AddTransient<IValidator<ChangePasswordCommand>, ChangePasswordCommandValidator>();
 
 // Registrar validadores de FluentValidation — User Commands
 builder.Services.AddTransient<IValidator<CreateUserCommand>, CreateUserCommandValidator>();

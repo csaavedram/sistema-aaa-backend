@@ -10,7 +10,7 @@ public class PasswordHasher : IPasswordHasher
 {
     public string Hash(string plain)
     {
-        return BCrypt.Net.BCrypt.HashPassword(plain);
+        return BCrypt.Net.BCrypt.HashPassword(plain, workFactor: 12);
     }
 
     public bool Verify(string plain, string hash)

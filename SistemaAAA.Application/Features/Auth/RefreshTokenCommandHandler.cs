@@ -62,9 +62,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
 
             var roles = await _authRepository.GetUserRolesAsync(storedToken.UserId, cancellationToken);
             var accessToken = _jwtService.GenerateAccessToken(storedToken.UserId, string.Empty, roles.ToArray());
-            var newRefreshToken = _jwtService.GenerateRefreshToken();
-
             await _authRepository.RevokeRefreshTokenAsync(storedToken.Id, cancellationToken);
+            var newRefreshToken = _jwtService.GenerateRefreshToken();
             await _authRepository.SaveRefreshTokenAsync(storedToken.UserId, newRefreshToken, request.IpAddress ?? string.Empty, cancellationToken);
 
             _logger.LogInformation("Refresh token rotated for userId: {UserId}", storedToken.UserId);

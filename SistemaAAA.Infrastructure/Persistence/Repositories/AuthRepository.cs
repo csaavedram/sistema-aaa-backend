@@ -99,6 +99,30 @@ public class AuthRepository : IAuthRepository
         await _context.SaveChangesAsync(ct);
     }
 
+    /// <inheritdoc />
+    public async Task RevokeAllUserRefreshTokensAsync(Guid userId, CancellationToken ct = default)
+    {
+        var tokens = await _context.RefreshTokens
+            .Where(x => x.UserId == userId && !x.IsRevoked)
+            .ToListAsync(ct);
+
+        if (tokens.Count == 0)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+
+        foreach (var token in tokens)
+        {
+            token.IsRevoked = true;
+            token.RevokedAt = now;
+        }
+
+        _context.RefreshTokens.UpdateRange(tokens);
+        await _context.SaveChangesAsync(ct);
+    }
+
     private static string ComputeTokenHash(string token)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));

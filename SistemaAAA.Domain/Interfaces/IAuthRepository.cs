@@ -47,4 +47,9 @@ public interface IAuthRepository
     /// Revoca un refresh token existente.
     /// </summary>
     Task RevokeRefreshTokenAsync(Guid tokenId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Revoca todos los refresh tokens activos de un usuario.
+    /// </summary>
+    Task RevokeAllUserRefreshTokensAsync(Guid userId, CancellationToken ct = default);
 }

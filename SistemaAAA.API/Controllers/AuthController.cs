@@ -165,6 +165,48 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// POST /change-password
+    /// </summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    [ProducesResponseType(typeof(object), 200)]
+    [ProducesResponseType(typeof(object), 400)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 404)]
+    [ProducesResponseType(typeof(object), 422)]
+    [ProducesResponseType(typeof(object), 500)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim is null)
+        {
+            return Unauthorized();
+        }
+
+        var cmd = new ChangePasswordCommand(
+            UserId: Guid.Parse(userIdClaim),
+            CurrentPassword: request.CurrentPassword,
+            NewPassword: request.NewPassword,
+            IpAddress: HttpContext.Connection.RemoteIpAddress?.ToString());
+
+        var result = await _mediator.Send(cmd);
+
+        if (result.IsSuccess)
+        {
+            return Ok(new { success = true, message = "Contraseña actualizada correctamente" });
+        }
+
+        return result.ErrorCode switch
+        {
+            "CURRENT_PASSWORD_INVALID" => BadRequest(result),
+            "SAME_PASSWORD" => BadRequest(result),
+            "WEAK_PASSWORD" => StatusCode(422, result),
+            "USER_NOT_FOUND" => NotFound(result),
+            _ => StatusCode(500, result)
+        };
+    }
+
+    /// <summary>
     /// POST /forgot-password
     /// Always returns 200 with a generic message (anti-enumeration).
     /// </summary>
@@ -227,4 +269,5 @@ public class AuthController : ControllerBase
     public record LoginRequest(string Email, string Password);
     public record ForgotPasswordRequest(string Email);
     public record ResetPasswordRequest(string Token, string NewPassword);
+    public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 }
