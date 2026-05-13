@@ -141,5 +141,9 @@ app.UseJwtMiddleware();
 app.UseAuthorization();
 
 app.MapControllers();
+// TEMPORAL — borrar después
+using var scope = app.Services.CreateScope();
+var hasher = scope.ServiceProvider.GetRequiredService<SistemaAAA.Domain.Interfaces.IPasswordHasher>();
+Console.WriteLine("HASH: " + hasher.Hash("Admin123!@#"));
 
 app.Run();

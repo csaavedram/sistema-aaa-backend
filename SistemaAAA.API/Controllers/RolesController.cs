@@ -71,7 +71,7 @@ public class RolesController : ControllerBase
         }
 
         var response = result.Value!;
-        return CreatedAtAction(nameof(GetUserRoles), new { userId = "temp" }, new { success = true, data = response });
+        return StatusCode(201, new { success = true, data = response });
     }
 
     /// <summary>
