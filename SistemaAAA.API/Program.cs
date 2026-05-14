@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
 using FluentValidation;
@@ -87,9 +89,49 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
+
+        // Verificar revocación en caché — necesario para que logout invalide
+        // el access token de forma inmediata sin esperar a que expire
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var cache = context.HttpContext.RequestServices
+                    .GetRequiredService<IMemoryCache>();
+
+                var jti = context.Principal?
+                    .FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
+
+                if (!string.IsNullOrEmpty(jti) && cache.TryGetValue($"revoked:{jti}", out _))
+                {
+                    context.Fail("Token revocado");
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Permisos de usuarios
+    options.AddPolicy("users.create",       p => p.RequireClaim("permission", "users.create"));
+    options.AddPolicy("users.read",         p => p.RequireClaim("permission", "users.read"));
+    options.AddPolicy("users.update",       p => p.RequireClaim("permission", "users.update"));
+    options.AddPolicy("users.delete",       p => p.RequireClaim("permission", "users.delete"));
+
+    // Permisos de roles
+    options.AddPolicy("roles.create",       p => p.RequireClaim("permission", "roles.create"));
+    options.AddPolicy("roles.read",         p => p.RequireClaim("permission", "roles.read"));
+    options.AddPolicy("roles.delete",       p => p.RequireClaim("permission", "roles.delete"));
+    options.AddPolicy("roles.assign",       p => p.RequireClaim("permission", "roles.assign"));
+
+    // Permisos de permisos
+    options.AddPolicy("permissions.assign", p => p.RequireClaim("permission", "permissions.assign"));
+
+    // Permisos de auditoría
+    options.AddPolicy("audit.read",         p => p.RequireClaim("permission", "audit.read"));
+});
 
 // Registrar validadores de FluentValidation — Auth Commands
 builder.Services.AddTransient<IValidator<LoginCommand>, LoginCommandValidator>();
@@ -108,6 +150,7 @@ builder.Services.AddTransient<IValidator<CreateRoleCommand>, CreateRoleCommandVa
 builder.Services.AddTransient<IValidator<DeleteRoleCommand>, DeleteRoleCommandValidator>();
 builder.Services.AddTransient<IValidator<AssignRoleToUserCommand>, AssignRoleToUserCommandValidator>();
 builder.Services.AddTransient<IValidator<RemoveRoleFromUserCommand>, RemoveRoleFromUserCommandValidator>();
+builder.Services.AddTransient<IValidator<AssignPermissionsToRoleCommand>, AssignPermissionsToRoleCommandValidator>();
 
 builder.Services.AddMediatR(cfg =>
 {
@@ -126,6 +169,7 @@ builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
@@ -142,9 +186,11 @@ app.UseJwtMiddleware();
 app.UseAuthorization();
 
 app.MapControllers();
-// TEMPORAL — borrar después
-using var scope = app.Services.CreateScope();
-var hasher = scope.ServiceProvider.GetRequiredService<SistemaAAA.Domain.Interfaces.IPasswordHasher>();
-Console.WriteLine("HASH: " + hasher.Hash("Admin123!@#"));
+
+if (builder.Configuration.GetValue<bool>("Seed:RunOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    await DatabaseSeeder.SeedAsync(scope.ServiceProvider);
+}
 
 app.Run();

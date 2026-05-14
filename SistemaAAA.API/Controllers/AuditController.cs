@@ -41,6 +41,7 @@ public class AuditController : ControllerBase
     /// Query parameters: userId, eventType, resource, from, to, page, pageSize
     /// </summary>
     [HttpGet]
+    [Authorize(Policy = "audit.read")]
     [ProducesResponseType(typeof(object), 200)]
     [ProducesResponseType(typeof(object), 401)]
     [ProducesResponseType(typeof(object), 403)]
@@ -79,6 +80,7 @@ public class AuditController : ControllerBase
     /// Get an audit log by ID.
     /// </summary>
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = "audit.read")]
     [ProducesResponseType(typeof(object), 200)]
     [ProducesResponseType(typeof(object), 401)]
     [ProducesResponseType(typeof(object), 403)]

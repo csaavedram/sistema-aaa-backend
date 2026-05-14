@@ -8,9 +8,9 @@ namespace SistemaAAA.Domain.Interfaces;
 public interface IJwtService
 {
     /// <summary>
-    /// Genera un access token JWT con las reclamaciones básicas.
+    /// Genera un access token JWT con las reclamaciones básicas y permisos granulares.
     /// </summary>
-    string GenerateAccessToken(Guid userId, string email, string[] roles);
+    string GenerateAccessToken(Guid userId, string email, string[] roles, string[] permissions);
 
     /// <summary>
     /// Genera un token de refresco (valor en claro, antes de hashearlo si procede).

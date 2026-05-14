@@ -42,6 +42,7 @@ public class RolesController : ControllerBase
     /// Create a new role.
     /// </summary>
     [HttpPost]
+    [Authorize(Policy = "roles.create")]
     [ProducesResponseType(typeof(object), 201)]
     [ProducesResponseType(typeof(object), 400)]
     [ProducesResponseType(typeof(object), 401)]
@@ -79,6 +80,7 @@ public class RolesController : ControllerBase
     /// Delete a role.
     /// </summary>
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "roles.delete")]
     [ProducesResponseType(204)]
     [ProducesResponseType(typeof(object), 400)]
     [ProducesResponseType(typeof(object), 401)]
@@ -112,6 +114,7 @@ public class RolesController : ControllerBase
     /// Assign a role to a user.
     /// </summary>
     [HttpPost("{roleId:guid}/users/{userId:guid}")]
+    [Authorize(Policy = "roles.assign")]
     [ProducesResponseType(typeof(object), 200)]
     [ProducesResponseType(typeof(object), 400)]
     [ProducesResponseType(typeof(object), 401)]
@@ -146,6 +149,7 @@ public class RolesController : ControllerBase
     /// Remove a role from a user.
     /// </summary>
     [HttpDelete("{roleId:guid}/users/{userId:guid}")]
+    [Authorize(Policy = "roles.assign")]
     [ProducesResponseType(204)]
     [ProducesResponseType(typeof(object), 400)]
     [ProducesResponseType(typeof(object), 401)]
@@ -198,6 +202,124 @@ public class RolesController : ControllerBase
         return Ok(new { success = true, data = response });
     }
 
+    /// <summary>
+    /// POST /api/v1/roles/{id}/permissions
+    /// Assign multiple permissions to a role.
+    /// </summary>
+    [HttpPost("{id:guid}/permissions")]
+    [Authorize(Policy = "permissions.assign")]
+    [ProducesResponseType(typeof(object), 200)]
+    [ProducesResponseType(typeof(object), 400)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 403)]
+    [ProducesResponseType(typeof(object), 404)]
+    [ProducesResponseType(typeof(object), 500)]
+    public async Task<IActionResult> AssignPermissionsToRole([FromRoute] Guid id, [FromBody] AssignPermissionsRequest request)
+    {
+        var assignedByUserId = GetRequestingUserId();
+        var ip = GetIpAddress();
+
+        var cmd = new AssignPermissionsToRoleCommand(id, request.PermissionIds ?? [], assignedByUserId, ip);
+
+        var result = await _mediator.Send(cmd);
+
+        if (!result.IsSuccess)
+        {
+            return result.ErrorCode switch
+            {
+                "ROLE_NOT_FOUND" => NotFound(result),
+                "PERMISSION_NOT_FOUND" => NotFound(result),
+                _ => StatusCode(400, result)
+            };
+        }
+
+        return Ok(new { success = true, message = "Permisos asignados" });
+    }
+
+    /// <summary>
+    /// GET /api/v1/roles/{id}/permissions
+    /// Get all permissions assigned to a role.
+    /// </summary>
+    [HttpGet("{id:guid}/permissions")]
+    [Authorize(Policy = "roles.read")]
+    [ProducesResponseType(typeof(object), 200)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 403)]
+    [ProducesResponseType(typeof(object), 404)]
+    [ProducesResponseType(typeof(object), 500)]
+    public async Task<IActionResult> GetRolePermissions([FromRoute] Guid id)
+    {
+        var query = new GetRolePermissionsQuery(id);
+
+        var result = await _mediator.Send(query);
+
+        if (!result.IsSuccess)
+        {
+            return result.ErrorCode switch
+            {
+                "ROLE_NOT_FOUND" => NotFound(result),
+                _ => StatusCode(400, result)
+            };
+        }
+
+        var response = result.Value!;
+        return Ok(new { success = true, data = response });
+    }
+
+    /// <summary>
+    /// GET /api/v1/roles
+    /// Get all roles.
+    /// </summary>
+    [HttpGet]
+    [Authorize(Policy = "roles.read")]
+    [ProducesResponseType(typeof(object), 200)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 403)]
+    [ProducesResponseType(typeof(object), 500)]
+    public async Task<IActionResult> GetRoles()
+    {
+        var query = new GetRolesQuery();
+
+        var result = await _mediator.Send(query);
+
+        if (!result.IsSuccess)
+        {
+            return StatusCode(500, result);
+        }
+
+        return Ok(new { success = true, data = result.Value });
+    }
+
+    /// <summary>
+    /// GET /api/v1/roles/{id}
+    /// Get a role by ID.
+    /// </summary>
+    [HttpGet("{id:guid}")]
+    [Authorize(Policy = "roles.read")]
+    [ProducesResponseType(typeof(object), 200)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 403)]
+    [ProducesResponseType(typeof(object), 404)]
+    [ProducesResponseType(typeof(object), 500)]
+    public async Task<IActionResult> GetRoleById([FromRoute] Guid id)
+    {
+        var query = new GetRoleByIdQuery(id);
+
+        var result = await _mediator.Send(query);
+
+        if (!result.IsSuccess)
+        {
+            return result.ErrorCode switch
+            {
+                "ROLE_NOT_FOUND" => NotFound(result),
+                _ => StatusCode(500, result)
+            };
+        }
+
+        return Ok(new { success = true, data = result.Value });
+    }
+
     // --- Request DTOs ---
     public record CreateRoleRequest(string Name, string Description);
+    public record AssignPermissionsRequest(List<Guid> PermissionIds);
 }

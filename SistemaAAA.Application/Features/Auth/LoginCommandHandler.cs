@@ -14,6 +14,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
 {
     private readonly IAuthRepository _authRepository;
     private readonly IJwtService _jwtService;
+    private readonly IPermissionRepository _permissionRepository;
     private readonly IAuditRepository? _auditRepository;
     private readonly ILogger<LoginCommandHandler> _logger;
 
@@ -27,11 +28,13 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
     public LoginCommandHandler(
         IAuthRepository authRepository,
         IJwtService jwtService,
+        IPermissionRepository permissionRepository,
         ILogger<LoginCommandHandler> logger,
         IAuditRepository? auditRepository = null)
     {
         _authRepository = authRepository;
         _jwtService = jwtService;
+        _permissionRepository = permissionRepository;
         _logger = logger;
         _auditRepository = auditRepository;
     }
@@ -102,8 +105,10 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
 
             // Load roles and generate tokens
             var roles = await _authRepository.GetUserRolesAsync(user.Id, cancellationToken);
+            var permissions = await _permissionRepository.GetByUserIdAsync(user.Id, cancellationToken);
+            var permissionNames = permissions.Select(p => p.Name).ToArray();
 
-            var accessToken = _jwtService.GenerateAccessToken(user.Id, user.Email, roles.ToArray());
+            var accessToken = _jwtService.GenerateAccessToken(user.Id, user.Email, roles.ToArray(), permissionNames);
             var refreshToken = _jwtService.GenerateRefreshToken();
 
             await _authRepository.SaveRefreshTokenAsync(user.Id, refreshToken, request.IpAddress, cancellationToken);

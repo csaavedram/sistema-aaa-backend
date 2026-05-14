@@ -24,7 +24,7 @@ public class JwtService : IJwtService
     }
 
     /// <inheritdoc/>
-    public string GenerateAccessToken(Guid userId, string email, string[] roles)
+    public string GenerateAccessToken(Guid userId, string email, string[] roles, string[] permissions)
     {
         var secretKey = _configuration["Jwt:SecretKey"]
             ?? throw new InvalidOperationException("JWT SecretKey no configurada.");
@@ -44,6 +44,9 @@ public class JwtService : IJwtService
 
         // Un claim por rol para compatibilidad con IsInRole() y [Authorize(Roles="...")]
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+
+        // Un claim por permiso para policies granulares [Authorize(Policy = "...")]
+        claims.AddRange(permissions.Select(p => new Claim("permission", p)));
 
         var expiresMinutes = int.TryParse(_configuration["Jwt:ExpiresMinutes"], out var min) ? min : 60;
         
@@ -67,7 +70,7 @@ public class JwtService : IJwtService
     /// Compatibilidad: genera un access token con roles list.
     /// </summary>
     public string GenerateAccessToken(Guid userId, List<string> roles)
-        => GenerateAccessToken(userId, string.Empty, roles.ToArray());
+        => GenerateAccessToken(userId, string.Empty, roles.ToArray(), []);
 
     /// <summary>
     /// Compatibilidad: genera refresh token asociado a un usuario (ignorando userId internamente).

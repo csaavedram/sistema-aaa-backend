@@ -12,15 +12,18 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
 {
     private readonly IAuthRepository _authRepository;
     private readonly IJwtService _jwtService;
+    private readonly IPermissionRepository _permissionRepository;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
 
     public RefreshTokenCommandHandler(
         IAuthRepository authRepository,
         IJwtService jwtService,
+        IPermissionRepository permissionRepository,
         ILogger<RefreshTokenCommandHandler> logger)
     {
         _authRepository = authRepository;
         _jwtService = jwtService;
+        _permissionRepository = permissionRepository;
         _logger = logger;
     }
 
@@ -60,8 +63,16 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
                 return Result<AuthResponse>.Failure("TOKEN_EXPIRED", "Refresh token is expired.");
             }
 
+            var user = await _authRepository.GetByIdAsync(storedToken.UserId, cancellationToken);
             var roles = await _authRepository.GetUserRolesAsync(storedToken.UserId, cancellationToken);
-            var accessToken = _jwtService.GenerateAccessToken(storedToken.UserId, string.Empty, roles.ToArray());
+            var permissions = await _permissionRepository.GetByUserIdAsync(storedToken.UserId, cancellationToken);
+            var permissionNames = permissions.Select(p => p.Name).ToArray();
+
+            var accessToken = _jwtService.GenerateAccessToken(
+                storedToken.UserId,
+                user?.Email ?? string.Empty,
+                roles.ToArray(),
+                permissionNames);
             await _authRepository.RevokeRefreshTokenAsync(storedToken.Id, cancellationToken);
             var newRefreshToken = _jwtService.GenerateRefreshToken();
             await _authRepository.SaveRefreshTokenAsync(storedToken.UserId, newRefreshToken, request.IpAddress ?? string.Empty, cancellationToken);

@@ -42,6 +42,7 @@ public class UsersController : ControllerBase
     /// Create a new user.
     /// </summary>
     [HttpPost]
+    [Authorize(Policy = "users.create")]
     [ProducesResponseType(typeof(object), 201)]
     [ProducesResponseType(typeof(object), 400)]
     [ProducesResponseType(typeof(object), 401)]
@@ -81,6 +82,7 @@ public class UsersController : ControllerBase
     /// Get a user by ID.
     /// </summary>
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = "users.read")]
     [ProducesResponseType(typeof(object), 200)]
     [ProducesResponseType(typeof(object), 401)]
     [ProducesResponseType(typeof(object), 403)]
@@ -106,6 +108,7 @@ public class UsersController : ControllerBase
     /// Update a user.
     /// </summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = "users.update")]
     [ProducesResponseType(typeof(object), 200)]
     [ProducesResponseType(typeof(object), 400)]
     [ProducesResponseType(typeof(object), 401)]
@@ -139,6 +142,7 @@ public class UsersController : ControllerBase
     /// Delete a user (soft delete).
     /// </summary>
     [HttpDelete("{id:guid}")]
+    [Authorize(Policy = "users.delete")]
     [ProducesResponseType(204)]
     [ProducesResponseType(typeof(object), 401)]
     [ProducesResponseType(typeof(object), 403)]
@@ -175,6 +179,7 @@ public class UsersController : ControllerBase
     /// List all users with pagination.
     /// </summary>
     [HttpGet]
+    [Authorize(Policy = "users.read")]
     [ProducesResponseType(typeof(object), 200)]
     [ProducesResponseType(typeof(object), 401)]
     [ProducesResponseType(typeof(object), 403)]
@@ -188,6 +193,36 @@ public class UsersController : ControllerBase
         if (!result.IsSuccess)
         {
             return StatusCode(500, result);
+        }
+
+        var response = result.Value!;
+        return Ok(new { success = true, data = response });
+    }
+
+    /// <summary>
+    /// GET /api/v1/users/{userId}/permissions
+    /// Get all permissions for a user (sum of all their roles' permissions).
+    /// </summary>
+    [HttpGet("{userId:guid}/permissions")]
+    [Authorize(Policy = "users.read")]
+    [ProducesResponseType(typeof(object), 200)]
+    [ProducesResponseType(typeof(object), 401)]
+    [ProducesResponseType(typeof(object), 403)]
+    [ProducesResponseType(typeof(object), 404)]
+    [ProducesResponseType(typeof(object), 500)]
+    public async Task<IActionResult> GetUserPermissions([FromRoute] Guid userId)
+    {
+        var query = new GetUserPermissionsQuery(userId);
+
+        var result = await _mediator.Send(query);
+
+        if (!result.IsSuccess)
+        {
+            return result.ErrorCode switch
+            {
+                "USER_NOT_FOUND" => NotFound(result),
+                _ => StatusCode(400, result)
+            };
         }
 
         var response = result.Value!;
