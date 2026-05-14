@@ -12,6 +12,8 @@ public record SearchAuditLogsQuery(
     string? Resource,
     DateTime? From,
     DateTime? To,
+    Guid RequestingUserId,
+    string? IpAddress,
     int Page = 1,
     int PageSize = 50) : IRequest<Result<SearchAuditLogsResponse>>;
 

@@ -31,7 +31,7 @@ public class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCo
             .MinimumLength(8)
             .WithMessage("La contraseña debe tener al menos 8 caracteres")
             .MaximumLength(128)
-            .Matches(@"^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+\[\{\]}\\|;:'"",<.>/?`~]).{8,}$")
+            .Matches(@"^(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{8,}$")
             .WithMessage("La contraseña debe tener mayúscula, número y carácter especial")
             .WithErrorCode("WEAK_PASSWORD");
     }

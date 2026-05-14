@@ -9,11 +9,12 @@ namespace SistemaAAA.API.Controllers;
 
 /// <summary>
 /// Controller for user management operations.
-/// Base authorization: Admin role required for all endpoints.
+/// Base authorization: authenticated users only — each endpoint
+    /// enforces its own granular policy (users.read, users.create, etc.).
 /// </summary>
 [ApiController]
 [Route("api/v1/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -25,7 +26,8 @@ public class UsersController : ControllerBase
         _logger = logger;
     }
 
-    private string? GetIpAddress() => HttpContext?.Connection?.RemoteIpAddress?.ToString();
+    private string? GetIpAddress() =>
+        HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     /// <summary>
     /// POST /api/v1/users

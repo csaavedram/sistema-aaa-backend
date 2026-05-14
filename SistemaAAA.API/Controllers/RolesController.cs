@@ -25,7 +25,8 @@ public class RolesController : ControllerBase
         _logger = logger;
     }
 
-    private string? GetIpAddress() => HttpContext?.Connection?.RemoteIpAddress?.ToString();
+    private string? GetIpAddress() =>
+        HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     /// <summary>
     /// POST /api/v1/roles

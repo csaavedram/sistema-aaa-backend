@@ -55,7 +55,7 @@ public class GetAuditLogByIdQueryHandler : IRequestHandler<GetAuditLogByIdQuery,
                 EventType = "AUDIT_LOG_ACCESSED",
                 Resource = "Audit",
                 Details = $"Acceso a log {request.AuditLogId}",
-                IpAddress = string.Empty,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 

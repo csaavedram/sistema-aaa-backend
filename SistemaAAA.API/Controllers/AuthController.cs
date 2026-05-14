@@ -23,7 +23,8 @@ public class AuthController : ControllerBase
         _logger = logger;
     }
 
-    private string? GetIpAddress() => HttpContext?.Connection?.RemoteIpAddress?.ToString();
+    private string? GetIpAddress() =>
+        HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     private static CookieOptions BuildRefreshTokenCookieOptions() => new()
     {
@@ -187,7 +188,7 @@ public class AuthController : ControllerBase
             UserId: Guid.Parse(userIdClaim),
             CurrentPassword: request.CurrentPassword,
             NewPassword: request.NewPassword,
-            IpAddress: HttpContext.Connection.RemoteIpAddress?.ToString());
+            IpAddress: GetIpAddress());
 
         var result = await _mediator.Send(cmd);
 

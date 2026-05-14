@@ -8,4 +8,5 @@ namespace SistemaAAA.Application.Features.Audit;
 /// </summary>
 public record GetAuditLogByIdQuery(
     Guid AuditLogId,
-    Guid RequestingUserId) : IRequest<Result<AuditLogDto>>;
+    Guid RequestingUserId,
+    string? IpAddress) : IRequest<Result<AuditLogDto>>;

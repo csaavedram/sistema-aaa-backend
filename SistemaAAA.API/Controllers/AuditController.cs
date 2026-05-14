@@ -9,11 +9,11 @@ namespace SistemaAAA.API.Controllers;
 
 /// <summary>
 /// Controller for audit log operations.
-/// Base authorization: Admin role required for all endpoints.
+/// Base authorization: Admin and Auditor roles required for all endpoints.
 /// </summary>
 [ApiController]
 [Route("api/v1/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Auditor")]
 public class AuditController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -45,12 +45,19 @@ public class AuditController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var requestingUserId))
+            return Unauthorized();
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+
         var query = new SearchAuditLogsQuery(
             userId,
             eventType,
             resource,
             from,
             to,
+            requestingUserId,
+            ipAddress,
             page,
             pageSize);
 
@@ -80,7 +87,10 @@ public class AuditController : ControllerBase
     {
         if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var requestingUserId))
             return Unauthorized();
-        var query = new GetAuditLogByIdQuery(id, requestingUserId);
+
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+        var query = new GetAuditLogByIdQuery(id, requestingUserId, ipAddress);
 
         var result = await _mediator.Send(query);
 

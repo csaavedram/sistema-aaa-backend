@@ -115,7 +115,6 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
 
         var hasUppercase = false;
         var hasDigit = false;
-        var specialCharacters = "!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?`~";
         var hasSpecialCharacter = false;
 
         foreach (var character in password)
@@ -130,7 +129,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
                 hasDigit = true;
             }
 
-            if (!hasSpecialCharacter && specialCharacters.Contains(character))
+            if (!hasSpecialCharacter && !char.IsLetterOrDigit(character))
             {
                 hasSpecialCharacter = true;
             }

@@ -114,7 +114,6 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
 
         var hasUppercase = false;
         var hasDigit = false;
-        var specialCharacters = "!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?`~";
         var hasSpecialCharacter = false;
 
         foreach (var character in password)
@@ -129,7 +128,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
                 hasDigit = true;
             }
 
-            if (!hasSpecialCharacter && specialCharacters.Contains(character))
+            if (!hasSpecialCharacter && !char.IsLetterOrDigit(character))
             {
                 hasSpecialCharacter = true;
             }

@@ -67,11 +67,11 @@ public class SearchAuditLogsQueryHandler : IRequestHandler<SearchAuditLogsQuery,
             var accessLog = new AuditLog
             {
                 Id = Guid.NewGuid(),
-                UserId = null,
+                UserId = request.RequestingUserId,
                 EventType = "AUDIT_LOG_ACCESSED",
                 Resource = "Audit",
                 Details = $"Consulta con filtros: EventType={request.EventType}, From={request.From}",
-                IpAddress = string.Empty,
+                IpAddress = request.IpAddress ?? string.Empty,
                 CreatedAt = DateTime.UtcNow
             };
 
