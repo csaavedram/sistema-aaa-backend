@@ -8,6 +8,10 @@ using SistemaAAA.Domain.Interfaces;
 
 namespace SistemaAAA.Application.Features.Auth;
 
+/// <summary>
+/// Maneja el comando de reseteo de contraseña. Valida el token,
+/// verifica la nueva contraseña y actualiza las credenciales del usuario.
+/// </summary>
 public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand, Result<bool>>
 {
     private readonly IPasswordResetTokenRepository _tokenRepository;
@@ -30,6 +34,9 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _logger = logger;
     }
 
+    /// <summary>Procesa el reseteo de contraseña con el token proporcionado.</summary>
+    /// <param name="request">Comando con el token y la nueva contraseña.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
     public async Task<Result<bool>> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
     {
         try

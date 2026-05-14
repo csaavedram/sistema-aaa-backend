@@ -7,6 +7,9 @@ namespace SistemaAAA.Application.Features.Roles;
 
 public record GetRolesQuery : IRequest<Result<List<RoleDto>>>;
 
+/// <summary>
+/// Maneja la consulta para obtener todos los roles del sistema.
+/// </summary>
 public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, Result<List<RoleDto>>>
 {
     private readonly IRoleRepository _roleRepository;
@@ -18,6 +21,9 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, Result<List<R
         _logger = logger;
     }
 
+    /// <summary>Devuelve la lista completa de roles registrados.</summary>
+    /// <param name="request">Consulta sin parámetros adicionales.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
     public async Task<Result<List<RoleDto>>> Handle(GetRolesQuery request, CancellationToken cancellationToken)
     {
         try

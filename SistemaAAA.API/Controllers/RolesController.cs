@@ -27,16 +27,6 @@ public class RolesController : ControllerBase
 
     private string? GetIpAddress() => HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
-    private Guid GetRequestingUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrWhiteSpace(userIdClaim))
-        {
-            throw new InvalidOperationException("User ID claim not found");
-        }
-        return Guid.Parse(userIdClaim);
-    }
-
     /// <summary>
     /// POST /api/v1/roles
     /// Create a new role.
@@ -51,7 +41,8 @@ public class RolesController : ControllerBase
     [ProducesResponseType(typeof(object), 500)]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
     {
-        var createdByUserId = GetRequestingUserId();
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var createdByUserId))
+            return Unauthorized();
         var ip = GetIpAddress() ?? string.Empty;
 
         var cmd = new CreateRoleCommand(
@@ -89,7 +80,8 @@ public class RolesController : ControllerBase
     [ProducesResponseType(typeof(object), 500)]
     public async Task<IActionResult> DeleteRole([FromRoute] Guid id)
     {
-        var deletedByUserId = GetRequestingUserId();
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var deletedByUserId))
+            return Unauthorized();
         var ip = GetIpAddress();
 
         var cmd = new DeleteRoleCommand(id, deletedByUserId, ip);
@@ -124,7 +116,8 @@ public class RolesController : ControllerBase
     [ProducesResponseType(typeof(object), 500)]
     public async Task<IActionResult> AssignRoleToUser([FromRoute] Guid roleId, [FromRoute] Guid userId)
     {
-        var assignedByUserId = GetRequestingUserId();
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var assignedByUserId))
+            return Unauthorized();
         var ip = GetIpAddress();
 
         var cmd = new AssignRoleToUserCommand(userId, roleId, assignedByUserId, ip);
@@ -158,7 +151,8 @@ public class RolesController : ControllerBase
     [ProducesResponseType(typeof(object), 500)]
     public async Task<IActionResult> RemoveRoleFromUser([FromRoute] Guid roleId, [FromRoute] Guid userId)
     {
-        var removedByUserId = GetRequestingUserId();
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var removedByUserId))
+            return Unauthorized();
         var ip = GetIpAddress();
 
         var cmd = new RemoveRoleFromUserCommand(userId, roleId, removedByUserId, ip);
@@ -216,7 +210,8 @@ public class RolesController : ControllerBase
     [ProducesResponseType(typeof(object), 500)]
     public async Task<IActionResult> AssignPermissionsToRole([FromRoute] Guid id, [FromBody] AssignPermissionsRequest request)
     {
-        var assignedByUserId = GetRequestingUserId();
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var assignedByUserId))
+            return Unauthorized();
         var ip = GetIpAddress();
 
         var cmd = new AssignPermissionsToRoleCommand(id, request.PermissionIds ?? [], assignedByUserId, ip);

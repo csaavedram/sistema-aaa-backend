@@ -27,16 +27,6 @@ public class UsersController : ControllerBase
 
     private string? GetIpAddress() => HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
-    private Guid GetRequestingUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrWhiteSpace(userIdClaim))
-        {
-            throw new InvalidOperationException("User ID claim not found");
-        }
-        return Guid.Parse(userIdClaim);
-    }
-
     /// <summary>
     /// POST /api/v1/users
     /// Create a new user.
@@ -52,7 +42,8 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(object), 500)]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
-        var createdByUserId = GetRequestingUserId();
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var createdByUserId))
+            return Unauthorized();
         var ip = GetIpAddress();
 
         var cmd = new CreateUserCommand(
@@ -118,7 +109,8 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(object), 500)]
     public async Task<IActionResult> UpdateUser([FromRoute] Guid id, [FromBody] UpdateUserRequest request)
     {
-        var requestingUserId = GetRequestingUserId();
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var requestingUserId))
+            return Unauthorized();
         var ip = GetIpAddress();
 
         var cmd = new UpdateUserCommand(
@@ -151,7 +143,8 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(object), 500)]
     public async Task<IActionResult> DeleteUser([FromRoute] Guid id)
     {
-        var requestingUserId = GetRequestingUserId();
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var requestingUserId))
+            return Unauthorized();
         var ip = GetIpAddress();
 
         var cmd = new DeleteUserCommand(

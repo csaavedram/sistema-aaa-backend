@@ -25,16 +25,6 @@ public class AuditController : ControllerBase
         _logger = logger;
     }
 
-    private Guid GetRequestingUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrWhiteSpace(userIdClaim))
-        {
-            throw new InvalidOperationException("User ID claim not found");
-        }
-        return Guid.Parse(userIdClaim);
-    }
-
     /// <summary>
     /// GET /api/v1/audit
     /// Search audit logs with optional filters and pagination.
@@ -88,7 +78,8 @@ public class AuditController : ControllerBase
     [ProducesResponseType(typeof(object), 500)]
     public async Task<IActionResult> GetAuditLogById([FromRoute] Guid id)
     {
-        var requestingUserId = GetRequestingUserId();
+        if (!Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var requestingUserId))
+            return Unauthorized();
         var query = new GetAuditLogByIdQuery(id, requestingUserId);
 
         var result = await _mediator.Send(query);

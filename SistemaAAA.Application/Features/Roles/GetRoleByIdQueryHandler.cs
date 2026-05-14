@@ -7,6 +7,9 @@ namespace SistemaAAA.Application.Features.Roles;
 
 public record GetRoleByIdQuery(Guid RoleId) : IRequest<Result<RoleDto>>;
 
+/// <summary>
+/// Maneja la consulta para obtener un rol por su identificador.
+/// </summary>
 public class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, Result<RoleDto>>
 {
     private readonly IRoleRepository _roleRepository;
@@ -18,6 +21,9 @@ public class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, Result<
         _logger = logger;
     }
 
+    /// <summary>Busca y retorna el rol correspondiente al identificador indicado.</summary>
+    /// <param name="request">Consulta con el identificador del rol.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
     public async Task<Result<RoleDto>> Handle(GetRoleByIdQuery request, CancellationToken cancellationToken)
     {
         try
