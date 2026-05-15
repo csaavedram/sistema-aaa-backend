@@ -205,3 +205,4 @@ if (builder.Configuration.GetValue<bool>("Seed:RunOnStartup"))
 }
 
 app.Run();
+public partial class Program { }

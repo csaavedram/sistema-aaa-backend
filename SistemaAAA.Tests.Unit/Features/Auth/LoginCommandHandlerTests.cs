@@ -20,6 +20,7 @@ public class LoginCommandHandlerTests
 {
     private readonly Mock<IAuthRepository> _mockAuthRepository;
     private readonly Mock<IJwtService> _mockJwtService;
+    private readonly Mock<IPermissionRepository> _mockPermissionRepository;
     private readonly Mock<ILogger<LoginCommandHandler>> _mockLogger;
     private readonly LoginCommandHandler _handler;
 
@@ -27,11 +28,13 @@ public class LoginCommandHandlerTests
     {
         _mockAuthRepository = new Mock<IAuthRepository>();
         _mockJwtService = new Mock<IJwtService>();
+        _mockPermissionRepository = new Mock<IPermissionRepository>();
         _mockLogger = new Mock<ILogger<LoginCommandHandler>>();
 
         _handler = new LoginCommandHandler(
             _mockAuthRepository.Object,
             _mockJwtService.Object,
+            _mockPermissionRepository.Object,
             _mockLogger.Object
         );
     }
@@ -62,7 +65,8 @@ public class LoginCommandHandlerTests
 
         _mockAuthRepository.Setup(x => x.GetUserByEmailAsync(email, It.IsAny<CancellationToken>())).ReturnsAsync(user);
         _mockAuthRepository.Setup(x => x.GetUserRolesAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(expectedRoles);
-        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, email, It.IsAny<string[]>())).Returns(expectedAccessToken);
+        _mockPermissionRepository.Setup(x => x.GetByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<Permission>());
+        _mockJwtService.Setup(x => x.GenerateAccessToken(userId, email, It.IsAny<string[]>(), It.IsAny<string[]>())).Returns(expectedAccessToken);
         _mockJwtService.Setup(x => x.GenerateRefreshToken()).Returns("refresh_token_value");
         _mockAuthRepository.Setup(x => x.SaveRefreshTokenAsync(userId, "refresh_token_value", "127.0.0.1", It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
@@ -78,7 +82,7 @@ public class LoginCommandHandlerTests
         result.Value!.Roles.Should().NotBeNull();
 
         _mockAuthRepository.Verify(x => x.GetUserByEmailAsync(email, It.IsAny<CancellationToken>()), Times.Once);
-        _mockJwtService.Verify(x => x.GenerateAccessToken(userId, email, It.IsAny<string[]>()), Times.Once);
+        _mockJwtService.Verify(x => x.GenerateAccessToken(userId, email, It.IsAny<string[]>(), It.IsAny<string[]>()), Times.Once);
         _mockAuthRepository.Verify(x => x.SaveRefreshTokenAsync(userId, "refresh_token_value", "127.0.0.1", It.IsAny<CancellationToken>()), Times.Once);
     }
 

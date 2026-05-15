@@ -26,4 +26,8 @@
     <ProjectReference Include="..\SistemaAAA.Infrastructure\SistemaAAA.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+  <InternalsVisibleTo Include="SistemaAAA.Tests.Integration" />
+</ItemGroup>
+
 </Project>

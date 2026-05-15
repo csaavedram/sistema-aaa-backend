@@ -64,7 +64,7 @@ public class AuditLogHandlerTests
 
         _mockAuditRepository.Setup(x => x.GetLogsAsync(It.IsAny<AuditLogFilter>(), It.IsAny<CancellationToken>())).ReturnsAsync(auditLogs);
 
-        var query = new SearchAuditLogsQuery(userId, "LOGIN_SUCCESS", "Auth", null, null, 1, 50);
+        var query = new SearchAuditLogsQuery(userId, "LOGIN_SUCCESS", "Auth", null, null, Guid.Empty, null, 1, 50);
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -98,7 +98,7 @@ public class AuditLogHandlerTests
 
         _mockAuditRepository.Setup(x => x.GetLogsAsync(It.IsAny<AuditLogFilter>(), It.IsAny<CancellationToken>())).ReturnsAsync(auditLogs);
 
-        var query = new SearchAuditLogsQuery(null, null, null, from, to, 1, 50);
+        var query = new SearchAuditLogsQuery(null, null, null, from, to, Guid.Empty, null, 1, 50);
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -118,7 +118,7 @@ public class AuditLogHandlerTests
 
         _mockAuditRepository.Setup(x => x.GetLogsAsync(It.IsAny<AuditLogFilter>(), It.IsAny<CancellationToken>())).ReturnsAsync(auditLogs);
 
-        var query = new SearchAuditLogsQuery(null, null, null, null, null, page, pageSize);
+        var query = new SearchAuditLogsQuery(null, null, null, null, null, Guid.Empty, null, page, pageSize);
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
