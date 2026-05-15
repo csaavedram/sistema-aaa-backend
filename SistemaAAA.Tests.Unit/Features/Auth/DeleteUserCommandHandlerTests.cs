@@ -141,5 +141,8 @@ public class DeleteUserCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         _mockUserRepository.Verify(x => x.DeleteAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
         _mockUserRepository.Verify(x => x.GetAdminCountAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockAuditRepository.Verify(x => x.InsertAsync(
+            It.Is<AuditLog>(l => l.EventType == "USER_DEACTIVATED"),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 }

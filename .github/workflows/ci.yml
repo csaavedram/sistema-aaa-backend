@@ -1,0 +1,105 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CI – sistema-aaa-backend
+#
+# Repositorio: sistema-aaa-backend (raíz = carpeta backend/)
+#
+# Dispara en:
+#   • push a 'main'
+#   • pull_request que apunta a 'main'
+#
+# Secrets requeridos en GitHub (Settings → Secrets → Actions):
+#   JWT_SECRET_KEY   — Clave de firma JWT (mín. 32 caracteres)
+#   JWT_ISSUER       — Emisor del token (p.ej. "SistemaAAA")
+#   JWT_AUDIENCE     — Audiencia del token (p.ej. "SistemaAAA-clients")
+#
+# Nota: los tests actuales sobreescriben la configuración JWT con valores
+# de prueba hardcodeados dentro de TestWebApplicationFactory, por lo que
+# el pipeline funciona incluso si los secrets no están configurados.
+# Se inyectan igualmente como buena práctica para futuros tests que lean
+# la configuración de producción.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancela ejecuciones anteriores del mismo PR para ahorrar minutos de Actions.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # JOB — Backend (.NET)
+  # Los comandos se ejecutan en la raíz del repositorio (sistema-aaa-backend),
+  # donde reside SistemaAAA.slnx directamente.
+  # ───────────────────────────────────────────────────────────────────────────
+  backend:
+    name: Backend (.NET)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # El proyecto usa el formato .slnx (XML solution), introducido en
+      # Visual Studio 2022 17.8+ y soportado por el SDK de .NET 9.
+      # El SDK 9 es retrocompatible y compila correctamente los targets net8.0.
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      # ── Build ────────────────────────────────────────────────────────────
+      - name: Restore dependencies
+        run: dotnet restore SistemaAAA.slnx
+
+      - name: Build (Release)
+        run: dotnet build SistemaAAA.slnx --no-restore --configuration Release
+
+      # ── Seguridad ────────────────────────────────────────────────────────
+      # Detecta paquetes NuGet con CVEs conocidas en el NVD.
+      # 'continue-on-error: true' → el resultado es informativo (no bloquea).
+      # Cámbialo a 'false' cuando quieras aplicar una política de cero CVEs.
+      - name: Security scan – paquetes vulnerables
+        run: dotnet list SistemaAAA.slnx package --vulnerable --include-transitive
+        continue-on-error: true
+
+      # ── Tests ────────────────────────────────────────────────────────────
+      - name: Unit Tests
+        run: |
+          dotnet test SistemaAAA.Tests.Unit/SistemaAAA.Tests.Unit.csproj \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=unit-results.trx" \
+            --results-directory ./TestResults
+        env:
+          Jwt__SecretKey: ${{ secrets.JWT_SECRET_KEY }}
+          Jwt__Issuer:    ${{ secrets.JWT_ISSUER }}
+          Jwt__Audience:  ${{ secrets.JWT_AUDIENCE }}
+
+      - name: Integration Tests
+        run: |
+          dotnet test SistemaAAA.Tests.Integration/SistemaAAA.Tests.Integration.csproj \
+            --no-build \
+            --configuration Release \
+            --logger "trx;LogFileName=integration-results.trx" \
+            --results-directory ./TestResults
+        env:
+          Jwt__SecretKey: ${{ secrets.JWT_SECRET_KEY }}
+          Jwt__Issuer:    ${{ secrets.JWT_ISSUER }}
+          Jwt__Audience:  ${{ secrets.JWT_AUDIENCE }}
+
+      # ── Artefactos ───────────────────────────────────────────────────────
+      # Se ejecuta siempre (incluso si los tests fallan) para poder
+      # inspeccionar los resultados en la pestaña Summary de GitHub Actions.
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: TestResults/*.trx

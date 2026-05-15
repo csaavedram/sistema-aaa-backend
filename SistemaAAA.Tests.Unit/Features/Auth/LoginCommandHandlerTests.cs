@@ -21,21 +21,29 @@ public class LoginCommandHandlerTests
     private readonly Mock<IAuthRepository> _mockAuthRepository;
     private readonly Mock<IJwtService> _mockJwtService;
     private readonly Mock<IPermissionRepository> _mockPermissionRepository;
+    private readonly Mock<IAuditRepository> _mockAuditRepository;
     private readonly Mock<ILogger<LoginCommandHandler>> _mockLogger;
     private readonly LoginCommandHandler _handler;
 
     public LoginCommandHandlerTests()
     {
-        _mockAuthRepository = new Mock<IAuthRepository>();
-        _mockJwtService = new Mock<IJwtService>();
+        _mockAuthRepository    = new Mock<IAuthRepository>();
+        _mockJwtService        = new Mock<IJwtService>();
         _mockPermissionRepository = new Mock<IPermissionRepository>();
-        _mockLogger = new Mock<ILogger<LoginCommandHandler>>();
+        _mockAuditRepository   = new Mock<IAuditRepository>();
+        _mockLogger            = new Mock<ILogger<LoginCommandHandler>>();
+
+        // Setup por defecto para que todos los tests puedan llamar InsertAsync sin error
+        _mockAuditRepository
+            .Setup(x => x.InsertAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         _handler = new LoginCommandHandler(
             _mockAuthRepository.Object,
             _mockJwtService.Object,
             _mockPermissionRepository.Object,
-            _mockLogger.Object
+            _mockLogger.Object,
+            _mockAuditRepository.Object
         );
     }
 
@@ -84,6 +92,9 @@ public class LoginCommandHandlerTests
         _mockAuthRepository.Verify(x => x.GetUserByEmailAsync(email, It.IsAny<CancellationToken>()), Times.Once);
         _mockJwtService.Verify(x => x.GenerateAccessToken(userId, email, It.IsAny<string[]>(), It.IsAny<string[]>()), Times.Once);
         _mockAuthRepository.Verify(x => x.SaveRefreshTokenAsync(userId, "refresh_token_value", "127.0.0.1", It.IsAny<CancellationToken>()), Times.Once);
+        _mockAuditRepository.Verify(x => x.InsertAsync(
+            It.Is<AuditLog>(l => l.EventType == "LOGIN_SUCCESS" && l.UserId == userId),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

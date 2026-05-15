@@ -68,6 +68,9 @@ public class ChangePasswordCommandHandlerTests
         _mockPasswordHasher.Verify(x => x.Hash(newPassword), Times.Once);
         _mockAuthRepository.Verify(x => x.UpdateAsync(It.Is<User>(u => u.PasswordHash == newHash), It.IsAny<CancellationToken>()), Times.Once);
         _mockAuthRepository.Verify(x => x.RevokeAllUserRefreshTokensAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _mockAuditRepository.Verify(x => x.InsertAsync(
+            It.Is<AuditLog>(l => l.EventType == "PASSWORD_CHANGED" && l.UserId == userId),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -132,6 +135,9 @@ public class ChangePasswordCommandHandlerTests
         _mockPasswordHasher.Setup(x => x.Verify(currentPassword, user.PasswordHash)).Returns(true);
         _mockPasswordHasher.Setup(x => x.Verify(newPassword, user.PasswordHash)).Returns(false);
         _mockPasswordHasher.Setup(x => x.Hash(newPassword)).Returns("new_hash");
+        _mockAuthRepository.Setup(x => x.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockAuthRepository.Setup(x => x.RevokeAllUserRefreshTokensAsync(userId, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockAuditRepository.Setup(x => x.InsertAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var cmd = new ChangePasswordCommand(userId, currentPassword, newPassword, "127.0.0.1");
 
@@ -141,5 +147,8 @@ public class ChangePasswordCommandHandlerTests
         // Assert
         // CRÍTICO: al cambiar contraseña se invalidan todos los dispositivos
         _mockAuthRepository.Verify(x => x.RevokeAllUserRefreshTokensAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _mockAuditRepository.Verify(x => x.InsertAsync(
+            It.Is<AuditLog>(l => l.EventType == "PASSWORD_CHANGED"),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 }

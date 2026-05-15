@@ -1,148 +1,107 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
+using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using SistemaAAA.Domain.Interfaces;
+using SistemaAAA.Infrastructure.Services;
 
-namespace SistemaAAA.Infrastructure.Services;
+namespace SistemaAAA.Tests.Unit.Infrastructure;
 
-/// <summary>
-/// Servicio para generación y validación de tokens JWT.
-/// </summary>
-public class JwtService : IJwtService
+public class JwtServiceTests
 {
-    private readonly IConfiguration _configuration;
-    private readonly IMemoryCache _cache;
+    private readonly JwtService _jwtService;
+    private const string SecretKey  = "test-secret-key-at-least-32-characters!!";
+    private const string Issuer     = "SistemaAAA-Test";
+    private const string Audience   = "SistemaAAA-clients-Test";
 
-    public JwtService(IConfiguration configuration, IMemoryCache cache)
+    public JwtServiceTests()
     {
-        _configuration = configuration;
-        _cache = cache;
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:SecretKey"]       = SecretKey,
+                ["Jwt:Issuer"]          = Issuer,
+                ["Jwt:Audience"]        = Audience,
+                ["Jwt:ExpiresMinutes"]  = "60"
+            })
+            .Build();
+
+        _jwtService = new JwtService(config, new MemoryCache(new MemoryCacheOptions()));
     }
 
-    /// <inheritdoc/>
-    public string GenerateAccessToken(Guid userId, string email, string[] roles, string[] permissions)
+    [Fact]
+    public void GenerateAccessToken_WithValidInput_ReturnsJwtWithThreeSegments()
     {
-        var secretKey = _configuration["Jwt:SecretKey"]
-            ?? throw new InvalidOperationException("JWT SecretKey no configurada.");
+        var token = _jwtService.GenerateAccessToken(
+            Guid.NewGuid(), "test@example.com",
+            new[] { "User" }, new[] { "users.read" });
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        token.Should().NotBeNullOrEmpty();
+        token.Split('.').Should().HaveCount(3, "un JWT válido tiene tres segmentos: header.payload.signature");
+    }
+
+    [Fact]
+    public void ValidateToken_WithValidToken_ReturnsTrueAndExtractsPrincipal()
+    {
+        var token = _jwtService.GenerateAccessToken(
+            Guid.NewGuid(), "test@example.com",
+            new[] { "User" }, Array.Empty<string>());
+
+        var isValid = _jwtService.ValidateToken(token, out var principal);
+
+        isValid.Should().BeTrue();
+        principal.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ValidateToken_WithManipulatedSignature_ReturnsFalse()
+    {
+        // Arrange: generar token válido y alterar el último carácter de la firma (3er segmento)
+        var token = _jwtService.GenerateAccessToken(
+            Guid.NewGuid(), "attacker@example.com",
+            new[] { "Admin" }, Array.Empty<string>());
+
+        var parts = token.Split('.');
+        parts.Should().HaveCount(3, "el token debe tener tres segmentos antes de manipularlo");
+
+        var sig = parts[2];
+        // Cambiar el primer carácter (siempre significativo; los bits de padding solo afectan al último)
+        var replacedFirst = sig[0] != 'Z' ? 'Z' : 'Y';
+        var tamperedToken = $"{parts[0]}.{parts[1]}.{replacedFirst}{sig[1..]}";
+
+        // Act
+        var isValid = _jwtService.ValidateToken(tamperedToken, out var principal);
+
+        // Assert
+        isValid.Should().BeFalse("una firma alterada debe ser rechazada por HMAC-SHA256");
+        principal.Should().BeNull();
+    }
+
+    [Fact]
+    public void ValidateToken_Expired_ReturnsFalse()
+    {
+        // Arrange: construir un token expirado directamente para evitar IDX12401
+        // (JwtService.GenerateAccessToken lanza esa excepción cuando notBefore >= expires)
+        var key         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub,   userId.ToString()),
-            new(JwtRegisteredClaimNames.Email, email),
-            new(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString()),
-            new(JwtRegisteredClaimNames.Iat,
-                DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),
-                ClaimValueTypes.Integer64),
-        };
+        var expiredJwt = new JwtSecurityToken(
+            issuer:             Issuer,
+            audience:           Audience,
+            claims:             new[] { new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()) },
+            notBefore:          DateTime.UtcNow.AddMinutes(-10),
+            expires:            DateTime.UtcNow.AddMinutes(-1),
+            signingCredentials: credentials);
 
-        // Un claim por rol para compatibilidad con IsInRole() y [Authorize(Roles="...")]
-        claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+        var expiredToken = new JwtSecurityTokenHandler().WriteToken(expiredJwt);
 
-        // Un claim por permiso para policies granulares [Authorize(Policy = "...")]
-        claims.AddRange(permissions.Select(p => new Claim("permission", p)));
+        // Act
+        var isValid = _jwtService.ValidateToken(expiredToken, out var principal);
 
-        var expiresMinutes = int.TryParse(_configuration["Jwt:ExpiresMinutes"], out var min) ? min : 60;
-
-        // --- CORRECCIÓN PARA TESTS ---
-        // Se ajustan notBefore y expires para evitar la excepción IDX12401 cuando expiresMinutes es negativo.
-        var now = DateTime.UtcNow;
-        var expirationTime = now.AddMinutes(expiresMinutes);
-        var startTime = expiresMinutes < 0 ? now.AddMinutes(expiresMinutes - 1) : now;
-        // -----------------------------
-        
-        var token = new JwtSecurityToken(
-            issuer:             _configuration["Jwt:Issuer"],
-            audience:           _configuration["Jwt:Audience"],
-            claims:             claims,
-            notBefore:          startTime,
-            expires:            expirationTime,
-            signingCredentials: credentials
-        );
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-
-    /// <inheritdoc/>
-    public string GenerateRefreshToken()
-        => Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-
-    /// <summary>
-    /// Compatibilidad: genera un access token con roles list.
-    /// </summary>
-    public string GenerateAccessToken(Guid userId, List<string> roles)
-        => GenerateAccessToken(userId, string.Empty, roles.ToArray(), []);
-
-    /// <summary>
-    /// Compatibilidad: genera refresh token asociado a un usuario (ignorando userId internamente).
-    /// </summary>
-    public string GenerateRefreshToken(Guid userId)
-        => GenerateRefreshToken();
-
-    /// <inheritdoc/>
-    public bool ValidateToken(string token, out ClaimsPrincipal? principal)
-    {
-        principal = null;
-
-        var secretKey = _configuration["Jwt:SecretKey"];
-        if (string.IsNullOrEmpty(secretKey)) return false;
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
-
-        var validationParams = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey         = key,
-
-            ValidateIssuer   = true,
-            ValidIssuer      = _configuration["Jwt:Issuer"],
-
-            ValidateAudience = true,
-            ValidAudience    = _configuration["Jwt:Audience"],
-
-            ValidateLifetime = true,
-            ClockSkew        = TimeSpan.Zero   // sin margen: expiración exacta
-        };
-
-        try
-        {
-            var handler = new JwtSecurityTokenHandler();
-            principal = handler.ValidateToken(token, validationParams, out var validatedToken);
-
-            // Verificar que el algoritmo sea el esperado (evitar el ataque "alg: none")
-            if (validatedToken is not JwtSecurityToken jwt ||
-                !jwt.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.OrdinalIgnoreCase))
-            {
-                principal = null;
-                return false;
-            }
-
-            // Verificar revocación en caché (token bloqueado por logout / rotación)
-            var jti = jwt.Id;
-            if (!string.IsNullOrEmpty(jti) && _cache.TryGetValue($"revoked:{jti}", out _))
-            {
-                principal = null;
-                return false;
-            }
-
-            return true;
-        }
-        catch (SecurityTokenException)
-        {
-            return false;   // firma inválida, expirado, issuer/audience incorrectos, etc.
-        }
-    }
-
-    /// <inheritdoc/>
-    public string? ExtractTokenId(string token)
-    {
-        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
-        return jwt.Id; // equivale a jwt.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value
+        // Assert
+        isValid.Should().BeFalse("un token expirado debe ser rechazado (ValidateLifetime = true, ClockSkew = 0)");
+        principal.Should().BeNull();
     }
 }

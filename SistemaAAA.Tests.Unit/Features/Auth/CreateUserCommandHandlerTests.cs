@@ -63,6 +63,8 @@ public class CreateUserCommandHandlerTests
         result.Value!.Email.Should().Be(email);
         result.Value!.UserId.Should().NotBeEmpty();
         _mockUserRepository.Verify(x => x.CreateAsync(It.Is<User>(u => u.Email == email), It.IsAny<CancellationToken>()), Times.Once);
+        // La contraseña almacenada jamás debe ser el texto plano
+        _mockUserRepository.Verify(x => x.CreateAsync(It.Is<User>(u => u.PasswordHash != password), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -110,6 +112,10 @@ public class CreateUserCommandHandlerTests
         captured.Should().NotBeNull();
         captured!.PasswordHash.Should().Be(hashedPassword);
         _mockPasswordHasher.Verify(x => x.Hash(password), Times.Once);
+        // Doble garantía vía Verify en el repositorio: hash ≠ texto plano Y hash = valor esperado
+        _mockUserRepository.Verify(x => x.CreateAsync(
+            It.Is<User>(u => u.PasswordHash != password && u.PasswordHash == hashedPassword),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
