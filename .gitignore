@@ -483,7 +483,6 @@ $RECYCLE.BIN/
 
 # Development environment files
 appsettings.Development.json
-DatabaseSeeder.cs
 
 # Entity Framework Migrations
 Migrations/
